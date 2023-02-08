@@ -1,6 +1,4 @@
 #include "Script.hpp"
-
-#include "Marshal.hpp"
 #include "Runtime.hpp"
 
 using System::Windows::Threading::DispatcherPriority;
@@ -14,6 +12,8 @@ namespace Frida
       dispatcher (dispatcher)
   {
     Runtime::Ref ();
+
+    jsonParser = json_parser_new();
 
     selfHandle = new msclr::gcroot<Script ^> (this);
     onMessageHandler = gcnew ScriptMessageHandler (this, &Script::OnMessage);
@@ -34,6 +34,8 @@ namespace Frida
 
   Script::!Script ()
   {
+      g_object_unref(jsonParser);
+
     if (handle != NULL)
     {
       g_object_unref (handle);
@@ -126,10 +128,16 @@ namespace Frida
   void
   Script::OnMessage (Object ^ sender, ScriptMessageEventArgs ^ e)
   {
-    if (dispatcher->CheckAccess ())
-      Message (sender, e);
-    else
-      dispatcher->BeginInvoke (DispatcherPriority::Normal, onMessageHandler, sender, e);
+      e->JsonParser(jsonParser);
+#ifndef _CONSOLE
+      if (dispatcher->CheckAccess())
+          Message(sender, e);
+      else
+          dispatcher->BeginInvoke(DispatcherPriority::Normal, onMessageHandler, sender, e);
+#else
+      Message(sender, e);
+#endif // !_CONSOLE
+
   }
 
   static void
@@ -139,7 +147,8 @@ namespace Frida
 
     msclr::gcroot<Script ^> * wrapper = static_cast<msclr::gcroot<Script ^> *> (user_data);
     ScriptMessageEventArgs ^ e = gcnew ScriptMessageEventArgs (
-        Marshal::UTF8CStringToClrString (message),
+        //Marshal::UTF8CStringToClrString (message),
+        message,
         Marshal::BytesToClrArray (data));
    (*wrapper)->OnMessage (*wrapper, e);
   }
