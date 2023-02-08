@@ -90,12 +90,20 @@ namespace Frida
             return;
         }
 
-        JsonObject* root = json_node_get_object(json_parser_get_root(parser));
+        root = json_node_get_object(json_parser_get_root(parser));
 
         const char* rtype = json_object_get_string_member(root, "type");
-        const char* rpl = json_object_get_string_member(root, "payload");
         type = Marshal::UTF8CStringToClrString(rtype);
-        payload = Marshal::UTF8CStringToClrString(rpl);
+
+        /*
+        * 这里在RPC过程中，当 payload 不是 string 对象时会报错
+        */
+
+        if (type->Equals("log"))
+        {
+            const char* rpl = json_object_get_string_member(root, "payload");
+            payload = Marshal::UTF8CStringToClrString(rpl);
+        }
     }
 
   private:
@@ -104,6 +112,7 @@ namespace Frida
     String ^ payload;
     array<unsigned char> ^ data;
 
+    JsonObject* root;
     const char* rawmessage;
   };
 }
